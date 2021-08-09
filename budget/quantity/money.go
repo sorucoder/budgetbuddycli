@@ -104,7 +104,7 @@ func (money Money) String() string {
 
 		builder.WriteRune('$')
 		for index, dollarRune := range dollarString {
-			if (len(dollarString)-index)%3 == 0 {
+			if index > 0 && (len(dollarString)-index)%3 == 0 {
 				builder.WriteRune(',')
 			}
 			builder.WriteRune(dollarRune)

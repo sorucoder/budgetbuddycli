@@ -24,7 +24,7 @@ func Make(name string) *Budget {
 
 // Load loads a budget from disk
 func Load(name string) (*Budget, error) {
-	var budget Budget
+	budget := Make(name)
 
 	fileReader, err := os.Open(fmt.Sprintf("%s.budget", name))
 	if err != nil {
@@ -36,7 +36,7 @@ func Load(name string) (*Budget, error) {
 		return nil, err
 	}
 
-	return &budget, nil
+	return budget, nil
 }
 
 // Save saves a budget to disk

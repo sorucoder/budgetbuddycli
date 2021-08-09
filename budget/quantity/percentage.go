@@ -91,7 +91,7 @@ func (percentage Percentage) String() string {
 		fractionString := strconv.FormatFloat(math.Abs(fractionalValue), 'f', -1, 64)
 
 		for index, integerRune := range integerString {
-			if (len(integerString)-index)%3 == 0 {
+			if index > 0 && (len(integerString)-index)%3 == 0 {
 				builder.WriteRune(',')
 			}
 			builder.WriteRune(integerRune)

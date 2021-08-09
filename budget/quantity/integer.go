@@ -118,7 +118,7 @@ func (integer Integer) String() string {
 	default:
 		integer := strconv.FormatFloat(integerValue, 'f', 0, 64)
 		for index, integerRune := range integer {
-			if (len(integer)-index)%3 == 0 {
+			if index > 0 && (len(integer)-index)%3 == 0 {
 				builder.WriteRune(',')
 			}
 			builder.WriteRune(integerRune)

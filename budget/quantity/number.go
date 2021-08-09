@@ -93,7 +93,7 @@ func (number Number) String() string {
 		fractionString := strings.TrimPrefix(strconv.FormatFloat(math.Abs(fractionalValue), 'f', -1, 64), "0")
 
 		for index, integerRune := range integerString {
-			if (len(integerString)-index)%3 == 0 {
+			if index > 0 && (len(integerString)-index)%3 == 0 {
 				builder.WriteRune(',')
 			}
 			builder.WriteRune(integerRune)
