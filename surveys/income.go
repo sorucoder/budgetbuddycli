@@ -127,7 +127,7 @@ func askSalarySurvey() (budget.Income, error) {
 		&survey.Input{
 			Message: fmt.Sprintf("Salary %s:", termenv.String("($)").Faint()),
 		},
-		&salary,
+		&salary.Salary,
 		survey.WithValidator(
 			survey.ComposeValidators(
 				survey.Required,

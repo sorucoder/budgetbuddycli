@@ -48,7 +48,10 @@ var createCmd = &cobra.Command{
 				panic(err)
 			}
 		}
-		newBudget.Save()
+
+		if err := newBudget.Save(); err != nil {
+			panic(err)
+		}
 	},
 }
 

@@ -1,6 +1,10 @@
 package budget
 
-import "github.com/sorucoder/budgetbuddy/budget/quantity"
+import (
+	"sort"
+
+	"github.com/sorucoder/budgetbuddy/budget/quantity"
+)
 
 // ExpenseList is a named list of monthly expenses
 type ExpenseList map[string]quantity.Money
@@ -12,4 +16,14 @@ func (list ExpenseList) Sum() quantity.Money {
 		total += expense
 	}
 	return total
+}
+
+// SortedNames sorts the names of expenses lexographically
+func (list ExpenseList) SortedNames() []string {
+	names := make([]string, 0, len(list))
+	for name := range list {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

@@ -1,10 +1,9 @@
 package budget
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"sort"
 
 	"github.com/sorucoder/budgetbuddy/budget/quantity"
 )
@@ -17,6 +16,16 @@ type Income interface {
 // IncomeList is a list of named monthly income sources
 type IncomeList map[string]Income
 
+// SortedNames sorts the names of income sources lexographically
+func (list IncomeList) SortedNames() []string {
+	names := make([]string, 0, len(list))
+	for name := range list {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // Sum adds all income sources together
 func (list IncomeList) Sum() quantity.Money {
 	var total quantity.Money
@@ -26,97 +35,65 @@ func (list IncomeList) Sum() quantity.Money {
 	return total
 }
 
-// marshalIncomeJSON marshals an Income into JSON
-func marshalIncomeJSON(income Income) ([]byte, error) {
-	switch incomeValue := income.(type) {
-	case *Wages:
-		if incomeJSON, err := json.Marshal(incomeValue); err == nil {
-			return incomeJSON, nil
-		} else {
-			return nil, err
-		}
-	case *Salary:
-		if incomeJSON, err := json.Marshal(incomeValue); err == nil {
-			return incomeJSON, nil
-		} else {
-			return nil, err
-		}
-	case *Sales:
-		if incomeJSON, err := json.Marshal(incomeValue); err == nil {
-			return incomeJSON, nil
-		} else {
-			return nil, err
-		}
-	case *Commissions:
-		if incomeJSON, err := json.Marshal(incomeValue); err == nil {
-			return incomeJSON, nil
-		} else {
-			return nil, err
-		}
-	default:
-		return nil, errors.New("unknown income type")
-	}
-}
-
-// MarshalJSON implements json.Marshaler for IncomeList
-func (list IncomeList) MarshalJSON() ([]byte, error) {
-	var buffer bytes.Buffer
-	buffer.WriteString("{")
-
-	index := 0
-	for name, income := range list {
-		buffer.WriteString(fmt.Sprintf("\"%s\":", name))
-
-		if incomeJSON, err := marshalIncomeJSON(income); err == nil {
-			buffer.Write(incomeJSON)
-		} else {
-			return nil, err
-		}
-
-		index++
-		if index < len(list)-1 {
-			buffer.WriteString(",")
-		}
-	}
-	buffer.WriteString("}")
-
-	return buffer.Bytes(), nil
-}
-
 // unmarshalIncomeJSON unmarshals JSON into an Income
 func unmarshalIncomeJSON(incomeJSON json.RawMessage) (Income, error) {
-	var wages Wages
-	if err := json.Unmarshal(incomeJSON, &wages); err == nil {
-		return &wages, nil
+	// Try Wages
+	var wagesJSON struct {
+		Rate  *float64 `json:"rate"`
+		Hours *float64 `json:"hours"`
+	}
+	json.Unmarshal(incomeJSON, &wagesJSON)
+	if wagesJSON.Rate != nil && wagesJSON.Hours != nil {
+		return &Wages{Rate: quantity.Money(*wagesJSON.Rate), Hours: quantity.Number(*wagesJSON.Hours)}, nil
 	}
 
-	var salary Salary
-	if err := json.Unmarshal(incomeJSON, &salary); err == nil {
-		return &salary, nil
+	// Try Salary
+	var salaryJSON struct {
+		Salary *float64 `json:"salary"`
+	}
+	json.Unmarshal(incomeJSON, &salaryJSON)
+	if salaryJSON.Salary != nil {
+		return &Salary{Salary: quantity.Money(*salaryJSON.Salary)}, nil
 	}
 
-	var sales Sales
-	if err := json.Unmarshal(incomeJSON, &sales); err == nil {
-		return &sales, nil
+	// Try Sales
+	var salesJSON struct {
+		Rate  *float64 `json:"rate"`
+		Items *float64 `json:"items"`
+	}
+	json.Unmarshal(incomeJSON, &salesJSON)
+	if salesJSON.Rate != nil && salesJSON.Items != nil {
+		return &Sales{Rate: quantity.Money(*salesJSON.Rate), Items: quantity.Integer(*salesJSON.Items)}, nil
 	}
 
-	var commissions Commissions
-	if err := json.Unmarshal(incomeJSON, &commissions); err == nil {
-		return &commissions, nil
+	// Try Commissions
+	var commissionsJSON struct {
+		Rate   *float64  `json:"rate"`
+		Volume []float64 `json:"volume"`
+	}
+	json.Unmarshal(incomeJSON, &commissionsJSON)
+	if salesJSON.Rate != nil && len(commissionsJSON.Volume) > 0 {
+		volumeMoney := make([]quantity.Money, 0, len(commissionsJSON.Volume))
+		for _, volume := range commissionsJSON.Volume {
+			volumeMoney = append(volumeMoney, quantity.Money(volume))
+		}
+		return &Commissions{Rate: quantity.Percentage(*commissionsJSON.Rate), Volume: volumeMoney}, nil
 	}
 
-	return nil, errors.New("unknown income type")
+	return nil, errors.New("unknown income format")
 }
 
 // UnmarshalJSON implements json.Unmarshaler for IncomeList
-func (list IncomeList) UnmarshalJSON(data []byte) error {
-	var incomeMapJSON map[string]json.RawMessage
-	if err := json.Unmarshal(data, &incomeMapJSON); err != nil {
+func (list *IncomeList) UnmarshalJSON(data []byte) error {
+	var incomeListJSON map[string]json.RawMessage
+
+	if err := json.Unmarshal(data, &incomeListJSON); err != nil {
 		return err
 	}
-	for name, incomeJSON := range incomeMapJSON {
+
+	for name, incomeJSON := range incomeListJSON {
 		if income, err := unmarshalIncomeJSON(incomeJSON); err == nil {
-			list[name] = income
+			(*list)[name] = income
 		} else {
 			return err
 		}
@@ -150,12 +127,12 @@ func (income *Wages) MonthlyIncome() quantity.Money {
 // Salary describes an income source that is paid as a fixed amount per year over regular intervals.
 // Example: You earn $50,000 a year as a Mathematics Professor, and earn $4,166.67 per month.
 type Salary struct {
-	quantity.Money `survey:"salary"`
+	Salary quantity.Money `survey:"salary" json:"salary"`
 }
 
 // MonthyIncome implements Income for Salary
 func (income Salary) MonthlyIncome() quantity.Money {
-	return income.Money / 12
+	return income.Salary / 12
 }
 
 // Sales describes an income source that is paid a fixed amount per item sold or task completed.
@@ -176,8 +153,8 @@ func (income Sales) MonthlyIncome() quantity.Money {
 // Example: You are a realtor and you make 6% on each home you sell. You sold 2 homes - one for $25,000 and one for $75,000.
 // Your monthly income for this month would be $6,000
 type Commissions struct {
-	Rate   quantity.Percentage // Percentage for each item sold/task completed
-	Volume []quantity.Money    // Value of each item sold/task completed
+	Rate   quantity.Percentage `survey:"rate" json:"rate"`     // Percentage for each item sold/task completed
+	Volume []quantity.Money    `survey:"volume" json:"volume"` // Value of each item sold/task completed
 }
 
 // MonthlyIncome implements Income for Commissions
