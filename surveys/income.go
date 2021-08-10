@@ -13,10 +13,11 @@ import (
 type incomeSurvey func() (budget.Income, error)
 
 var incomeSurveys = map[string]incomeSurvey{
-	"Wages":       askWagesSurvey,
-	"Salary":      askSalarySurvey,
-	"Sales":       askSalesSurvey,
-	"Commissions": askCommissionsSurvey,
+	"Wages":        askWagesSurvey,
+	"Salary":       askSalarySurvey,
+	"Sales":        askSalesSurvey,
+	"Commissions":  askCommissionsSurvey,
+	"Supplemental": askSupplementalSurvey,
 }
 
 func askIncomeListSurvey(list budget.IncomeList) error {
@@ -215,4 +216,25 @@ func askCommissionsSurvey() (budget.Income, error) {
 	}
 
 	return &commissions, nil
+}
+
+func askSupplementalSurvey() (budget.Income, error) {
+	var supplemental budget.Supplemental
+	if err := survey.AskOne(
+		&survey.Input{
+			Message: fmt.Sprintf("Supplemental Income %s:", termenv.String("($)").Faint()),
+		},
+		&supplemental.Money,
+		survey.WithValidator(
+			survey.ComposeValidators(
+				survey.Required,
+				moneyValidator,
+				boundedMoneyValidator(0.01, nil),
+			),
+		),
+	); err != nil {
+		return nil, err
+	}
+	return &supplemental, nil
+
 }

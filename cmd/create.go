@@ -30,7 +30,7 @@ import (
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Creates budgets",
+	Short: "creates budgets",
 	Long:  `Interactively prompts the user to create a budget from scratch.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

@@ -23,15 +23,18 @@ import (
 	"github.com/sorucoder/budgetbuddy/budget"
 	"github.com/sorucoder/budgetbuddy/reports"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
 	Use:   "report",
-	Short: "A brief description of your command",
-	Args:  cobra.ExactArgs(1),
+	Short: "generates reports on created budgets",
 	Long:  `Generates reports on budgets`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		budget.NetPayPercentage = viper.GetFloat64("net_pay_percentage")
+
 		reportBudget, err := budget.Load(args[0])
 		if err != nil {
 			fmt.Println(termenv.String(fmt.Sprintf(`Could not load budget "%s.budget"`, args[0])).Foreground(termenv.ANSIRed))
@@ -53,4 +56,7 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// reportCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	createCmd.Flags().Float64("net-pay-percentage", 0.75, "The estimated percentage used to calculate net pay from gross pay")
+	viper.BindPFlag("net_pay_percentage", createCmd.Flags().Lookup("net-pay-percentage"))
 }

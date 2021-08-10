@@ -72,12 +72,21 @@ func unmarshalIncomeJSON(incomeJSON json.RawMessage) (Income, error) {
 		Volume []float64 `json:"volume"`
 	}
 	json.Unmarshal(incomeJSON, &commissionsJSON)
-	if salesJSON.Rate != nil && len(commissionsJSON.Volume) > 0 {
+	if commissionsJSON.Rate != nil && len(commissionsJSON.Volume) > 0 {
 		volumeMoney := make([]quantity.Money, 0, len(commissionsJSON.Volume))
 		for _, volume := range commissionsJSON.Volume {
 			volumeMoney = append(volumeMoney, quantity.Money(volume))
 		}
 		return &Commissions{Rate: quantity.Percentage(*commissionsJSON.Rate), Volume: volumeMoney}, nil
+	}
+
+	// Try supplemental
+	var supplementalJSON struct {
+		Money *float64 `json:"money"`
+	}
+	json.Unmarshal(incomeJSON, &supplementalJSON)
+	if supplementalJSON.Money != nil {
+		return &Supplemental{Money: quantity.Money(*supplementalJSON.Money)}, nil
 	}
 
 	return nil, errors.New("unknown income format")
@@ -121,7 +130,7 @@ func (income *Wages) MonthlyIncome() quantity.Money {
 		normalHours = income.Hours.ValueOf()
 		overtimeHours = 0
 	}
-	return quantity.Money(52 * (income.Rate.ValueOf()*normalHours + 1.5*income.Rate.ValueOf()*overtimeHours) / 12)
+	return quantity.Money(NetPayPercentage * 52 * (income.Rate.ValueOf()*normalHours + 1.5*income.Rate.ValueOf()*overtimeHours) / 12)
 }
 
 // Salary describes an income source that is paid as a fixed amount per year over regular intervals.
@@ -132,7 +141,7 @@ type Salary struct {
 
 // MonthyIncome implements Income for Salary
 func (income Salary) MonthlyIncome() quantity.Money {
-	return income.Salary / 12
+	return quantity.Money(NetPayPercentage * income.Salary.ValueOf() / 12)
 }
 
 // Sales describes an income source that is paid a fixed amount per item sold or task completed.
@@ -164,4 +173,15 @@ func (income Commissions) MonthlyIncome() quantity.Money {
 		totalValue += income.Rate.ValueOf() * volume.ValueOf()
 	}
 	return quantity.Money(totalValue)
+}
+
+// Supplemental describes a generic monthly income source.
+// Example: You receive $100 per month in allowance.
+type Supplemental struct {
+	Money quantity.Money `survey:"money" json:"money"`
+}
+
+// MonthlyIncome implements Income for Supplemental
+func (income Supplemental) MonthlyIncome() quantity.Money {
+	return income.Money
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/sorucoder/budgetbuddy/budget/quantity"
 )
 
 // Budget describes a named budget comprised of income and expenses
@@ -54,4 +56,8 @@ func (budget *Budget) Save() error {
 	}
 
 	return nil
+}
+
+func (budget *Budget) Sum() quantity.Money {
+	return budget.Income.Sum() - budget.Expenses.Sum()
 }

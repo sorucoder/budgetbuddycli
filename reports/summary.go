@@ -32,7 +32,7 @@ func reportSummary(budget *budget.Budget) {
 
 	tableWriter.SetTitle("Summary")
 	tableWriter.AppendHeader(table.Row{"Income", "Expenses", "Remaining"})
-	tableWriter.AppendRow(table.Row{budget.Income.Sum(), budget.Expenses.Sum(), budget.Income.Sum() - budget.Expenses.Sum()})
+	tableWriter.AppendRow(table.Row{budget.Income.Sum(), budget.Expenses.Sum(), budget.Sum()})
 
 	fmt.Println(tableWriter.Render())
 }

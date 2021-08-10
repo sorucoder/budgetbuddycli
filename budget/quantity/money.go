@@ -9,8 +9,10 @@ import (
 )
 
 var (
-	moneyRegexp        = regexp.MustCompile(`^([+\-]?)\$(\d+(?:\.\d{2})?)$`)
-	moneyGroupedRegexp = regexp.MustCompile(`^([+\-]?)\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)$`)
+	defaultRegexp        = regexp.MustCompile(`^[+\-]?\d+(?:\.\d{2})?$`)
+	defaultGroupedRegexp = regexp.MustCompile(`^[+\-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$`)
+	usdRegexp            = regexp.MustCompile(`^([+\-]?)\$(\d+(?:\.\d{2})?)$`)
+	usdGroupedRegexp     = regexp.MustCompile(`^([+\-]?)\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)$`)
 )
 
 // Money describes a human-friendly monetary value.
@@ -28,22 +30,35 @@ func NewMoney(value interface{}) (Money, error) {
 	case float64:
 		return Money(moneyValue), nil
 	case string:
-		if moneyRegexp.MatchString(moneyValue) {
-			moneyValue = strings.Join(moneyRegexp.FindStringSubmatch(moneyValue)[1:], "")
+		if defaultRegexp.MatchString(moneyValue) {
 			if money, err := strconv.ParseFloat(moneyValue, 64); err == nil {
 				return Money(money), nil
 			} else {
-				return Money(math.NaN()), fmt.Errorf(`failed to parse string %s as budget.Money: %w`, moneyValue, err)
+				return Money(math.NaN()), fmt.Errorf(`failed to parse string %v as budget.Money: %w`, value, err)
 			}
-		} else if moneyGroupedRegexp.MatchString(moneyValue) {
-			moneyValue = strings.ReplaceAll(strings.Join(moneyGroupedRegexp.FindStringSubmatch(moneyValue)[1:], ""), ",", "")
+		} else if defaultGroupedRegexp.MatchString(moneyValue) {
+			moneyValue = strings.ReplaceAll(moneyValue, ",", "")
 			if money, err := strconv.ParseFloat(moneyValue, 64); err == nil {
 				return Money(money), nil
 			} else {
-				return Money(math.NaN()), fmt.Errorf(`failed to parse string %s as budget.Money: %w`, moneyValue, err)
+				return Money(math.NaN()), fmt.Errorf(`failed to parse string %v as budget.Money: %w`, value, err)
+			}
+		} else if usdRegexp.MatchString(moneyValue) {
+			moneyValue = strings.Join(usdRegexp.FindStringSubmatch(moneyValue)[1:], "")
+			if money, err := strconv.ParseFloat(moneyValue, 64); err == nil {
+				return Money(money), nil
+			} else {
+				return Money(math.NaN()), fmt.Errorf(`failed to parse string %v as budget.Money: %w`, value, err)
+			}
+		} else if usdGroupedRegexp.MatchString(moneyValue) {
+			moneyValue = strings.ReplaceAll(strings.Join(usdGroupedRegexp.FindStringSubmatch(moneyValue)[1:], ""), ",", "")
+			if money, err := strconv.ParseFloat(moneyValue, 64); err == nil {
+				return Money(money), nil
+			} else {
+				return Money(math.NaN()), fmt.Errorf(`failed to parse string %v as budget.Money: %w`, value, err)
 			}
 		} else {
-			return Money(math.NaN()), fmt.Errorf(`failed to parse string %s as budget.Money: invalid format`, moneyValue)
+			return Money(math.NaN()), fmt.Errorf(`failed to parse string %v as budget.Money: invalid format`, value)
 		}
 	default:
 		return Money(math.NaN()), fmt.Errorf(`failed to parse %[1]T %[1]v as budget.Money: invalid type`, value)
@@ -99,9 +114,12 @@ func (money Money) String() string {
 		builder.WriteString("-$∞")
 	default:
 		dollarValue, centValue := math.Modf(moneyValue)
-		dollarString := strconv.FormatFloat(dollarValue, 'f', 0, 64)
+		dollarString := strconv.FormatFloat(math.Abs(dollarValue), 'f', 0, 64)
 		centString := strings.TrimPrefix(strconv.FormatFloat(math.Abs(centValue), 'f', 2, 64), "0")
 
+		if moneyValue < 0 {
+			builder.WriteRune('-')
+		}
 		builder.WriteRune('$')
 		for index, dollarRune := range dollarString {
 			if index > 0 && (len(dollarString)-index)%3 == 0 {
